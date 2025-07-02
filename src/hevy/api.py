@@ -1,4 +1,5 @@
 import requests
+from requests import Response
 
 from src.config import CONFIG
 
@@ -14,6 +15,33 @@ class HevyAPI:
             headers={"api-key": cls.API_KEY},
         )
 
+    @classmethod
+    def get_workouts(cls):
+        workouts = []
+        current_page = 1
+        page_size = 10
 
-if __name__ == "__main__":
-    print(HevyAPI.get_workouts_count().json())
+        def _get_page(page: int):
+            return requests.get(
+                f"{HevyAPI.BASE_URL}/workouts",
+                headers={"api-key": cls.API_KEY},
+                params={"page": page, "pageSize": page_size}
+            )
+
+        def _process_response(resp: Response):
+            _workouts = resp.json().get("workouts")
+            if _workouts:
+                workouts.extend(_workouts)
+
+        first_page = _get_page(current_page)
+        page_count = first_page.json().get("page_count", 0)
+
+        _process_response(first_page)
+
+        while current_page < page_count:
+            current_page += 1
+            next_page = _get_page(current_page)
+            _process_response(next_page)
+
+        return workouts
+
