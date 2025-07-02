@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import requests
 from requests import Response
 
@@ -45,3 +47,37 @@ class HevyAPI:
 
         return workouts
 
+    @classmethod
+    def get_workouts_events(cls, since: datetime):
+        since_iso = since.isoformat(timespec='seconds')
+        workout_events = []
+        current_page = 1
+        page_size = 10
+
+        def _get_page(page: int):
+            return requests.get(
+                f"{HevyAPI.BASE_URL}/workouts/events",
+                headers={"api-key": cls.API_KEY},
+                params={
+                    "page": page,
+                    "pageSize": page_size,
+                    "since": since_iso
+                }
+            )
+
+        def _process_response(resp: Response):
+            _workouts = resp.json().get("events")
+            if _workouts:
+                workout_events.extend(_workouts)
+
+        first_page = _get_page(current_page)
+        page_count = first_page.json().get("page_count", 0)
+
+        _process_response(first_page)
+
+        while current_page < page_count:
+            current_page += 1
+            next_page = _get_page(current_page)
+            _process_response(next_page)
+
+        return workout_events

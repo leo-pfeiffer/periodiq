@@ -1,10 +1,9 @@
 from dateutil.parser import isoparse
 
-from src.db.connection import SessionLocal
 from src.db.models import Workout, WorkoutExercise, WorkoutSet
 
 
-def _parse_workout(payload: dict) -> Workout:
+def parse_workout(payload: dict) -> Workout:
     workout = Workout(
         uuid=payload["id"],
         title=payload["title"],
@@ -44,11 +43,5 @@ def _parse_workout(payload: dict) -> Workout:
     return workout
 
 
-def import_workout_payload(payload: list[dict]) -> None:
-    with SessionLocal() as session:
-        for w in payload:
-            workout = _parse_workout(w)
-            session.add(workout)
-        session.commit()
-
-
+def sort_workouts(workouts: list[Workout]):
+    return sorted(workouts, key=lambda w: w.start_time)

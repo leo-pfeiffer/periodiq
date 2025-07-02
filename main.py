@@ -1,5 +1,6 @@
 from src.hevy.api import HevyAPI
-from src.hevy.importer import import_workout_payload
+from src.hevy.updater import insert_workouts, get_most_recent_update, process_new_workout_events
 
-workouts = HevyAPI.get_workouts()
-import_workout_payload(workouts)
+# workouts = HevyAPI.get_workouts()
+# insert_workouts(workouts)
+# process_new_workout_events()
