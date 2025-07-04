@@ -1,12 +1,12 @@
 import streamlit as st
 
 from src import data_utils
-from src.data_utils import get_all_dfs
+from src.data_utils import get_workouts_by_routine_dfs, get_workouts_by_exercise_df, exercise_name_df, style_df
 from src.hevy.updater import process_new_workout_events
 
 st.set_page_config(layout="wide")
 
-select, compare = st.tabs(["Select members", "Compare selected"])
+select, by_routine, by_exercise = st.tabs(["Select workouts", "Workouts by routine", "Workouts by exercise"])
 
 with select:
 
@@ -47,22 +47,65 @@ with select:
     selected_workouts = workouts.selection.rows
     filtered_df = workout_df[["uuid"] + show_cols].iloc[selected_workouts]
 
+    uuids = list(filtered_df.uuid.unique())
+
     st.dataframe(
         filtered_df,
         column_config=column_configuration,
         use_container_width=True,
     )
 
-with compare:
+with by_routine:
 
-    uuids = list(filtered_df.uuid.unique())
-    dfs = get_all_dfs(uuids)
-    for g, df in dfs.items():
-        st.write(g)
-        st.dataframe(
-            df,
-            column_config={
-                "_index": st.column_config.Column("Exercise", width="medium")
-            },
-            use_container_width=False
+    if len(filtered_df) == 0:
+        st.write("Select workouts first.")
+
+    else:
+        dfs = get_workouts_by_routine_dfs(uuids)
+        for g, df in dfs.items():
+            st.write(g)
+            st.dataframe(
+                df,
+                column_config={
+                    "_index": st.column_config.Column("Exercise", width="medium")
+                },
+                use_container_width=False
+            )
+
+
+with by_exercise:
+
+    if len(filtered_df) == 0:
+        st.write("Select workouts first.")
+
+    else:
+
+        exercise_name_df = exercise_name_df(uuids)
+        exercises_df = st.dataframe(
+            exercise_name_df,
+            use_container_width=True,
+            hide_index=True,
+            on_select="rerun",
+            selection_mode="multi-row",
+            height=150
         )
+        selected_exercises = exercises_df.selection.rows
+
+        ex_df = get_workouts_by_exercise_df(uuids)
+        ex_df_filtered = (
+            ex_df.loc[list(exercise_name_df.iloc[selected_exercises]['Exercise'])]
+            .dropna(axis=1, how='all')
+        )
+        ex_df_styled = style_df(ex_df_filtered)
+
+        if len(ex_df_filtered) > 0:
+            # Bug.. if too many workouts selected, it starts cutting off:
+            # print(ex_df_filtered["2025-06-30 11:04"])
+            st.dataframe(
+                ex_df_styled,
+                column_config={
+                    "_index": st.column_config.Column("Exercise", width="medium")
+                },
+                use_container_width=False,
+                height=600
+            )

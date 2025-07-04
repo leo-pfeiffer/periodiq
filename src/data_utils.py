@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import pandas as pd
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -29,6 +31,7 @@ def get_workouts_with_details(uuids: list[str]) -> list[dict]:
         stmt = (
             select(Workout)
             .where(Workout.uuid.in_(uuids))
+            .order_by(Workout.start_time)
             .options(
                 selectinload(Workout.exercises)
                 .selectinload(WorkoutExercise.sets)
@@ -100,16 +103,19 @@ def group_and_sort_workouts(workouts):
     return grouped_workouts
 
 
+def exercises_of_workouts(workouts):
+    exercises = []
+    for w in workouts:
+        exercises.extend(w['exercises'])
+    sorted_exercises = sorted(exercises, key=lambda e: e["index"])
+    return list(dict.fromkeys([e["title"] for e in sorted_exercises]))
+
+
 def exercises_of_group(grouped):
-    exercises = {}
-    for group, workouts in grouped.items():
-        group_ex = []
-        for w in workouts:
-            group_ex.extend(w['exercises'])
-        group_ex = sorted(group_ex, key=lambda e: e["index"])
-        group_ex_names = list(dict.fromkeys([e["title"] for e in group_ex]))
-        exercises[group] = group_ex_names
-    return exercises
+    return {
+        group: exercises_of_workouts(workouts)
+        for group, workouts in grouped.items()
+    }
 
 
 def _get_exercise_from_workout(exercise, workout):
@@ -119,11 +125,16 @@ def _get_exercise_from_workout(exercise, workout):
     return None
 
 
+def _pretty_timestamp(iso_string: str):
+    dt_object = datetime.fromisoformat(iso_string)
+    return dt_object.strftime("%Y-%m-%d %H:%M")
+
+
 def _get_max_sets_for_workout(workout):
     return max([len(e['sets']) for e in workout['exercises']])
 
 
-def get_df(exercises, workouts):
+def get_workout_df_for_routine(exercises, workouts):
     rows = {e: [] for e in exercises}
     columns_set = set()
     columns = []
@@ -137,8 +148,9 @@ def get_df(exercises, workouts):
                 for s in gex['sets']:
 
                     idx = s['index'] + 1
-                    col_name1 = (workout['start_time'], f'SET {idx}', f"Weight")
-                    col_name2 = (workout['start_time'], f'SET {idx}', f"Reps")
+                    start_time = _pretty_timestamp(workout['start_time'])
+                    col_name1 = (start_time, f'W {idx}')
+                    col_name2 = (start_time, f'R {idx}')
 
                     if col_name1 not in columns_set:
                         columns_set.add(col_name1)
@@ -157,9 +169,11 @@ def get_df(exercises, workouts):
                 rows[ex].extend([None] * max_sets * 2)
 
     df = pd.DataFrame.from_dict(data=rows, orient='index').astype('Int64')
-
     df.columns = pd.MultiIndex.from_tuples(tuples=columns)
+    return df
 
+
+def style_df(df):
     shaded_cols = [c for i, c in enumerate(list(dict.fromkeys([c[0] for c in df.columns]))) if i % 2 != 0]
 
     styler = (
@@ -169,13 +183,35 @@ def get_df(exercises, workouts):
     return styler
 
 
-def get_all_dfs(uuids) -> dict:
+def get_workout_df_by_exercise(workouts):
+    exercises = exercises_of_workouts(workouts)
+    return get_workout_df_for_routine(exercises, workouts)
+
+
+def get_workouts_by_routine_dfs(uuids) -> dict:
+    if not uuids:
+        return {}
     workouts = get_workouts_with_details(uuids)
     grouped_workouts = group_and_sort_workouts(workouts)
     guessed_order = guess_order_of_workout_days(grouped_workouts)
     group_exercises = exercises_of_group(grouped_workouts)
 
     return {
-        g: get_df(group_exercises[g], grouped_workouts[g])
+        g: style_df(get_workout_df_for_routine(group_exercises[g], grouped_workouts[g]))
         for g in guessed_order
     }
+
+
+def get_workouts_by_exercise_df(uuids):
+    if not uuids:
+        return None
+    workouts = get_workouts_with_details(uuids)
+    return get_workout_df_by_exercise(workouts)
+
+
+def exercise_name_df(uuids):
+    if not uuids:
+        return None
+    workouts = get_workouts_with_details(uuids)
+    exercises = exercises_of_workouts(workouts)
+    return pd.DataFrame({"Exercise": sorted(exercises)})
