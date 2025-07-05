@@ -1,16 +1,18 @@
+from datetime import datetime, date, timedelta
+
 import streamlit as st
 
 from src import data_utils
 from src.data_utils import get_workouts_by_routine_dfs, get_workouts_by_exercise_df, exercise_name_df, style_df, \
-    change_in_one_rep_max
+    change_in_one_rep_max, get_workout_uuids__in_time_range
 from src.hevy.updater import process_new_workout_events
 
 st.set_page_config("Periodiq")
 st.set_page_config(layout="wide")
 st.logo('images/periodiq-logo.png', size='large')
 
-dashboard, select, by_routine, by_exercise = st.tabs(
-    ["Dashboard", "Select workouts", "Workouts by routine", "Workouts by exercise"]
+dashboard_view, workout_view, exercise_view, settings_view = st.tabs(
+    ["Dashboard", "Workouts", "Exercises", "Settings"]
 )
 
 priority_exercises = [
@@ -20,7 +22,7 @@ priority_exercises = [
     "Bench Press (Barbell)",
 ]
 
-with dashboard:
+with dashboard_view:
     cols = st.columns(len(priority_exercises))
     for i, col in enumerate(cols):
         exercise = priority_exercises[i]
@@ -35,13 +37,7 @@ with dashboard:
             width="stretch"
         )
 
-
-with select:
-
-    st.button(
-        label="Refresh data",
-        on_click=process_new_workout_events
-    )
+with workout_view:
 
     show_cols = ['title', 'start_time', 'end_time']
 
@@ -68,27 +64,15 @@ with select:
         hide_index=True,
         on_select="rerun",
         selection_mode="multi-row",
+        height=200
     )
-
-    st.header("Selected workouts")
 
     selected_workouts = workouts.selection.rows
     filtered_df = workout_df[["uuid"] + show_cols].iloc[selected_workouts]
 
     uuids = list(filtered_df.uuid.unique())
 
-    st.dataframe(
-        filtered_df,
-        column_config=column_configuration,
-        use_container_width=True,
-    )
-
-with by_routine:
-
-    if len(filtered_df) == 0:
-        st.write("Select workouts first.")
-
-    else:
+    if len(filtered_df) > 0:
         dfs = get_workouts_by_routine_dfs(uuids)
         for g, df in dfs.items():
             st.write(g)
@@ -101,25 +85,33 @@ with by_routine:
             )
 
 
-with by_exercise:
+with exercise_view:
+    today = date.today()
+    past_90 = today - timedelta(days=90)
 
-    if len(filtered_df) == 0:
-        st.write("Select workouts first.")
+    date_range = st.date_input(
+        "Date range",
+        (past_90, today),
+        max_value=today,
+        format="MM/DD/YYYY",
+        label_visibility="hidden"
+    )
 
-    else:
+    time_range_uuids = get_workout_uuids__in_time_range(date_range[0], date_range[1])
+    exercise_name_df = exercise_name_df(time_range_uuids)
 
-        exercise_name_df = exercise_name_df(uuids)
-        exercises_df = st.dataframe(
-            exercise_name_df,
-            use_container_width=True,
-            hide_index=True,
-            on_select="rerun",
-            selection_mode="multi-row",
-            height=150
-        )
-        selected_exercises = exercises_df.selection.rows
+    exercises_df = st.dataframe(
+        exercise_name_df,
+        use_container_width=True,
+        hide_index=True,
+        on_select="rerun",
+        selection_mode="multi-row",
+        height=200
+    )
+    selected_exercises = exercises_df.selection.rows
 
-        ex_df = get_workouts_by_exercise_df(uuids)
+    if selected_exercises:
+        ex_df = get_workouts_by_exercise_df(time_range_uuids)
         ex_df_filtered = (
             ex_df.loc[list(exercise_name_df.iloc[selected_exercises]['Exercise'])]
             .dropna(axis=1, how='all')
@@ -134,3 +126,11 @@ with by_exercise:
                 },
                 use_container_width=False,
             )
+
+
+with settings_view:
+    st.write("Fetch latest workout data from Hevy")
+    st.button(
+        label="Refresh data",
+        on_click=process_new_workout_events
+    )

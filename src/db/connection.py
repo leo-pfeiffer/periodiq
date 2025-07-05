@@ -5,7 +5,7 @@ from src.config import ROOT_DIR
 
 engine = create_engine(
     f"sqlite:///{ROOT_DIR}/periodiq.db",
-    echo=True,
+    echo=False,
     connect_args={"check_same_thread": False}
 )
 

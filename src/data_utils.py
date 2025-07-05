@@ -42,21 +42,17 @@ def get_workouts_with_details(uuids: list[str]) -> list[dict]:
         return [orm_to_dict(w) for w in workouts]
 
 
-# uuids = [
-#     "25c2ed8b-c0b8-4e2a-b99d-3215cb054b40",
-#     "dde076a7-899f-4e7c-8924-3a346ba6299a",
-#     "99509426-ad2d-4acb-b1bb-6bcd8f67aa07",
-#     "fbaff451-1673-429e-954c-6993e86f8e9a",
-#     "b5fe1899-6a32-4d61-9d4e-bd00b3db72a3",
-#     "5d3de98f-c5db-4a38-afaf-4bc52e5589b8",
-#     "0222e624-2af0-4402-b773-8e75136e08fa",
-#     "ccbb802f-2ee7-4067-b9e6-1d29fe7df4f2",
-#     "62d07456-b243-4808-b40b-1174a47326ed",
-#     "d9336e41-dcdd-4e2e-8dda-ffd34c580eec",
-#     "a0a0df4b-0e43-4774-b2ec-cf17e3dfe9a6",
-#     "2ebdbe35-0039-42da-8d2b-edea8b3c2d9b",
-#     "c6b1d36d-dfe8-4386-b6b8-9eee0dad1ccd"
-# ]
+def get_workout_uuids__in_time_range(start_date: date, end_date: date) -> list[str]:
+    with SessionLocal() as session:
+        stmt = (
+            select(Workout.uuid)
+            .where(
+                Workout.start_time >= start_date,
+                Workout.start_time <= end_date
+            )
+            .order_by(Workout.start_time)
+        )
+        return [x for x in session.execute(stmt).scalars().all()]
 
 
 def get_workout_day(w):
@@ -213,8 +209,6 @@ def get_workouts_by_exercise_df(uuids):
 
 
 def exercise_name_df(uuids):
-    if not uuids:
-        return None
     workouts = get_workouts_with_details(uuids)
     exercises = exercises_of_workouts(workouts)
     return pd.DataFrame({"Exercise": sorted(exercises)})
