@@ -4,7 +4,8 @@ import streamlit as st
 
 from src import data_utils
 from src.data_utils import get_workouts_by_routine_dfs, get_workouts_by_exercise_df, exercise_name_df, style_df, \
-    change_in_one_rep_max, get_workout_uuids__in_time_range, change_in_heaviest_weight
+    change_in_one_rep_max, get_workout_uuids__in_time_range, change_in_heaviest_weight, \
+    get_weekly_sets_last_three_months
 from src.hevy.updater import process_new_workout_events
 
 st.set_page_config("Periodiq")
@@ -52,6 +53,16 @@ with dashboard_view:
             border=True,
             width="stretch"
         )
+
+    st.write("#### Sets per Week")
+    st.bar_chart(
+        get_weekly_sets_last_three_months(),
+        x="week_start",
+        y="set_count",
+        x_label="Week",
+        y_label="# Sets",
+        color=(255, 75, 75, 0.6)
+    )
 
 with workout_view:
 

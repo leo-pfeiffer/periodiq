@@ -1,7 +1,7 @@
 from datetime import datetime, date, timedelta
 
 import pandas as pd
-from sqlalchemy import select, func
+from sqlalchemy import select, func, extract
 from sqlalchemy.orm import selectinload
 
 from src.db.connection import SessionLocal
@@ -275,3 +275,42 @@ def change_in_heaviest_weight(exercise) -> tuple:
     last_three_months = int(_get_heaviest_weight_last(exercise, prev_three, today) * KG_TO_LBS)
     prev_three_months = int(_get_heaviest_weight_last(exercise, prev_six, prev_three) * KG_TO_LBS)
     return last_three_months, last_three_months - prev_three_months
+
+
+def get_weekly_set_counts(start_date: date, end_date: date) -> list[tuple[int, int, int]]:
+    """
+    Returns a list of (year, week, set_count) tuples for all workouts
+    with start_time >= start_date.
+    """
+    with SessionLocal() as session:
+        # Custom SQLite expression to get ISO week start (Monday)
+        week_start_expr = func.date(
+            Workout.start_time,
+            'weekday 0',  # move to Sunday
+            '-6 days'  # then go back to Monday
+        ).label("week_start")
+
+        stmt = (
+            select(
+                week_start_expr,
+                func.count(WorkoutSet.id).label("set_count")
+            )
+            .select_from(WorkoutSet)
+            .join(WorkoutExercise)
+            .join(Workout)
+            .where(
+                Workout.start_time >= start_date,
+                Workout.start_time <= end_date
+            )
+            .group_by(week_start_expr)
+            .order_by(week_start_expr)
+        )
+
+        return session.execute(stmt).all()
+
+
+def get_weekly_sets_last_three_months():
+    today = date.today()
+    prev_three = date.today() - timedelta(90)
+    sets = get_weekly_set_counts(prev_three, today)
+    return pd.DataFrame(sets)
