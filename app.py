@@ -4,6 +4,7 @@ from src import data_utils
 from src.data_utils import get_workouts_by_routine_dfs, get_workouts_by_exercise_df, exercise_name_df, style_df
 from src.hevy.updater import process_new_workout_events
 
+st.set_page_config("Periodiq")
 st.set_page_config(layout="wide")
 st.logo('images/periodiq-logo.png', size='large')
 
