@@ -140,17 +140,16 @@ def get_workout_df_for_routine(exercises, workouts):
     columns = []
 
     for workout in workouts:
+        start_time = _pretty_timestamp(workout['start_time'])
         max_sets = _get_max_sets_for_workout(workout)
 
         for ex in exercises:
             gex = _get_exercise_from_workout(ex, workout)
+            set_values = []
             if gex:
-                for s in gex['sets']:
-
-                    idx = s['index'] + 1
-                    start_time = _pretty_timestamp(workout['start_time'])
-                    col_name1 = (start_time, f'W {idx}')
-                    col_name2 = (start_time, f'R {idx}')
+                for idx, s in enumerate(gex['sets']):
+                    col_name1 = (start_time, f'W {idx+1}')
+                    col_name2 = (start_time, f'R {idx+1}')
 
                     if col_name1 not in columns_set:
                         columns_set.add(col_name1)
@@ -162,13 +161,16 @@ def get_workout_df_for_routine(exercises, workouts):
                     weight_kg = s.get('weight_kg') or 0
                     reps = s.get('reps') or 0
 
-                    rows[ex].append(int(weight_kg * 2.20462))
-                    rows[ex].append(int(reps))
+                    set_values.append(int(weight_kg * 2.20462))
+                    set_values.append(int(reps))
 
-            else:
-                rows[ex].extend([None] * max_sets * 2)
+            n_none_sets = max_sets * 2 - len(set_values)
+            set_values.extend([None] * n_none_sets)
+            rows[ex].extend(set_values)
 
     df = pd.DataFrame.from_dict(data=rows, orient='index').astype('Int64')
+    pd.set_option('display.max_rows', None)
+    pd.set_option('display.max_columns', None)
     df.columns = pd.MultiIndex.from_tuples(tuples=columns)
     return df
 
@@ -177,7 +179,7 @@ def style_df(df):
     shaded_cols = [c for i, c in enumerate(list(dict.fromkeys([c[0] for c in df.columns]))) if i % 2 != 0]
 
     styler = (
-        df.style.apply(lambda c: ["background-color: rgba(0, 123, 255, 0.1);"] * len(c), subset=shaded_cols)
+        df.style.apply(lambda c: ["background-color: rgba(255, 75, 75, 0.1);"] * len(c), subset=shaded_cols)
     )
 
     return styler

@@ -5,6 +5,7 @@ from src.data_utils import get_workouts_by_routine_dfs, get_workouts_by_exercise
 from src.hevy.updater import process_new_workout_events
 
 st.set_page_config(layout="wide")
+st.logo('images/periodiq-logo.png', size='large')
 
 select, by_routine, by_exercise = st.tabs(["Select workouts", "Workouts by routine", "Workouts by exercise"])
 
@@ -99,13 +100,10 @@ with by_exercise:
         ex_df_styled = style_df(ex_df_filtered)
 
         if len(ex_df_filtered) > 0:
-            # Bug.. if too many workouts selected, it starts cutting off:
-            # print(ex_df_filtered["2025-06-30 11:04"])
             st.dataframe(
                 ex_df_styled,
                 column_config={
                     "_index": st.column_config.Column("Exercise", width="medium")
                 },
                 use_container_width=False,
-                height=600
             )
