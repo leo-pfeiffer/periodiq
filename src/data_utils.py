@@ -1,14 +1,15 @@
-from datetime import datetime
+from datetime import datetime, date, timedelta
 
 import pandas as pd
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
 from src.db.connection import SessionLocal
-from src.db.models import Workout, WorkoutExercise
+from src.db.models import Workout, WorkoutExercise, WorkoutSet
 from src.db.utils import orm_to_dict
 
 UNCATEGORIZED = "UNCATEGORIZED"
+KG_TO_LBS = 2.20462
 
 
 def workouts_to_df() -> pd.DataFrame:
@@ -161,7 +162,7 @@ def get_workout_df_for_routine(exercises, workouts):
                     weight_kg = s.get('weight_kg') or 0
                     reps = s.get('reps') or 0
 
-                    set_values.append(int(weight_kg * 2.20462))
+                    set_values.append(int(weight_kg * KG_TO_LBS))
                     set_values.append(int(reps))
 
             n_none_sets = max_sets * 2 - len(set_values)
@@ -217,3 +218,46 @@ def exercise_name_df(uuids):
     workouts = get_workouts_with_details(uuids)
     exercises = exercises_of_workouts(workouts)
     return pd.DataFrame({"Exercise": sorted(exercises)})
+
+
+def _get_one_rep_max_last(exercise: str, start_date: date, end_date: date):
+    with SessionLocal() as session:
+        # Epley 1RM formula
+        one_rm_expr = WorkoutSet.weight_kg * (
+                1 + (WorkoutSet.reps / 30)
+        )
+
+        stmt = (
+            select(func.max(one_rm_expr))
+            .select_from(WorkoutSet)
+            .join(WorkoutExercise)
+            .join(Workout)
+            .where(
+                WorkoutExercise.title == exercise,
+                WorkoutSet.reps != None,
+                WorkoutSet.reps > 0,
+                WorkoutSet.weight_kg != None,
+                Workout.start_time >= start_date,
+                Workout.start_time <= end_date
+            )
+        )
+
+        return session.execute(stmt).scalar()
+
+
+def get_one_rep_max_last_three_months(exercise):
+    end_date = date.today()
+    start_date = end_date - timedelta(days=90)
+    return _get_one_rep_max_last(exercise, start_date, end_date)
+
+
+def get_one_rep_max_prev_three_months(exercise):
+    end_date = date.today() - timedelta(days=90)
+    start_date = end_date - timedelta(days=90)
+    return _get_one_rep_max_last(exercise, start_date, end_date)
+
+
+def change_in_one_rep_max(exercise) -> tuple:
+    last_three_months = int(get_one_rep_max_last_three_months(exercise) * KG_TO_LBS)
+    prev_three_months = int(get_one_rep_max_prev_three_months(exercise) * KG_TO_LBS)
+    return last_three_months, last_three_months - prev_three_months

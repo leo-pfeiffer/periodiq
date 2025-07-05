@@ -1,14 +1,40 @@
 import streamlit as st
 
 from src import data_utils
-from src.data_utils import get_workouts_by_routine_dfs, get_workouts_by_exercise_df, exercise_name_df, style_df
+from src.data_utils import get_workouts_by_routine_dfs, get_workouts_by_exercise_df, exercise_name_df, style_df, \
+    change_in_one_rep_max
 from src.hevy.updater import process_new_workout_events
 
 st.set_page_config("Periodiq")
 st.set_page_config(layout="wide")
 st.logo('images/periodiq-logo.png', size='large')
 
-select, by_routine, by_exercise = st.tabs(["Select workouts", "Workouts by routine", "Workouts by exercise"])
+dashboard, select, by_routine, by_exercise = st.tabs(
+    ["Dashboard", "Select workouts", "Workouts by routine", "Workouts by exercise"]
+)
+
+priority_exercises = [
+    "Squat (Barbell)",
+    "Deadlift (Barbell)",
+    "Deadlift (Trap bar)",
+    "Bench Press (Barbell)",
+]
+
+with dashboard:
+    cols = st.columns(len(priority_exercises))
+    for i, col in enumerate(cols):
+        exercise = priority_exercises[i]
+        one_rm, one_rm_change = change_in_one_rep_max(exercise)
+        col.metric(
+            f"{exercise} 1RM",
+            one_rm,
+            delta=one_rm_change,
+            help=f"Best {exercise} 1RM in last 3 months and change to prior 3 months",
+            label_visibility="visible",
+            border=True,
+            width="stretch"
+        )
+
 
 with select:
 
