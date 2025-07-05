@@ -4,7 +4,7 @@ import streamlit as st
 
 from src import data_utils
 from src.data_utils import get_workouts_by_routine_dfs, get_workouts_by_exercise_df, exercise_name_df, style_df, \
-    change_in_one_rep_max, get_workout_uuids__in_time_range
+    change_in_one_rep_max, get_workout_uuids__in_time_range, change_in_heaviest_weight
 from src.hevy.updater import process_new_workout_events
 
 st.set_page_config("Periodiq")
@@ -23,15 +23,31 @@ priority_exercises = [
 ]
 
 with dashboard_view:
-    cols = st.columns(len(priority_exercises))
-    for i, col in enumerate(cols):
+    st.write("#### One Rep Max")
+    one_rm_cols = st.columns(len(priority_exercises))
+    for i, col in enumerate(one_rm_cols):
         exercise = priority_exercises[i]
         one_rm, one_rm_change = change_in_one_rep_max(exercise)
         col.metric(
-            f"{exercise} 1RM",
+            f"{exercise}",
             one_rm,
             delta=one_rm_change,
             help=f"Best {exercise} 1RM in last 3 months and change to prior 3 months",
+            label_visibility="visible",
+            border=True,
+            width="stretch"
+        )
+
+    st.write("#### Heaviest Weight")
+    heaviest_weight_cols = st.columns(len(priority_exercises))
+    for i, col in enumerate(heaviest_weight_cols):
+        exercise = priority_exercises[i]
+        heaviest_weight, heaviest_weight_change = change_in_heaviest_weight(exercise)
+        col.metric(
+            f"{exercise}",
+            heaviest_weight,
+            delta=heaviest_weight_change,
+            help=f"Heaviest weight {exercise} in last 3 months and change to prior 3 months",
             label_visibility="visible",
             border=True,
             width="stretch"

@@ -239,19 +239,39 @@ def _get_one_rep_max_last(exercise: str, start_date: date, end_date: date):
         return session.execute(stmt).scalar()
 
 
-def get_one_rep_max_last_three_months(exercise):
-    end_date = date.today()
-    start_date = end_date - timedelta(days=90)
-    return _get_one_rep_max_last(exercise, start_date, end_date)
+def _get_heaviest_weight_last(exercise: str, start_date: date, end_date: date):
+    with SessionLocal() as session:
+        stmt = (
+            select(func.max(WorkoutSet.weight_kg))
+            .select_from(WorkoutSet)
+            .join(WorkoutExercise)
+            .join(Workout)
+            .where(
+                WorkoutExercise.title == exercise,
+                WorkoutSet.reps != None,
+                WorkoutSet.reps > 0,
+                WorkoutSet.weight_kg != None,
+                Workout.start_time >= start_date,
+                Workout.start_time <= end_date
+            )
+        )
 
-
-def get_one_rep_max_prev_three_months(exercise):
-    end_date = date.today() - timedelta(days=90)
-    start_date = end_date - timedelta(days=90)
-    return _get_one_rep_max_last(exercise, start_date, end_date)
+        return session.execute(stmt).scalar()
 
 
 def change_in_one_rep_max(exercise) -> tuple:
-    last_three_months = int(get_one_rep_max_last_three_months(exercise) * KG_TO_LBS)
-    prev_three_months = int(get_one_rep_max_prev_three_months(exercise) * KG_TO_LBS)
+    today = date.today()
+    prev_three = date.today() - timedelta(90)
+    prev_six = date.today() - timedelta(180)
+    last_three_months = int(_get_one_rep_max_last(exercise, prev_three, today) * KG_TO_LBS)
+    prev_three_months = int(_get_one_rep_max_last(exercise, prev_six, prev_three) * KG_TO_LBS)
+    return last_three_months, last_three_months - prev_three_months
+
+
+def change_in_heaviest_weight(exercise) -> tuple:
+    today = date.today()
+    prev_three = date.today() - timedelta(90)
+    prev_six = date.today() - timedelta(180)
+    last_three_months = int(_get_heaviest_weight_last(exercise, prev_three, today) * KG_TO_LBS)
+    prev_three_months = int(_get_heaviest_weight_last(exercise, prev_six, prev_three) * KG_TO_LBS)
     return last_three_months, last_three_months - prev_three_months
