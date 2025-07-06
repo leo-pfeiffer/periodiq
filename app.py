@@ -85,7 +85,21 @@ with planner_view:
     # CALENDAR VIEW
     # 1. Shows plans in order (layout tbd)
     # 2. Click on plan should select plan (maybe)
-    ...
+
+    @st.dialog("Create new plan")
+    def create_plan_modal():
+        st.write(f"Create new plan")
+        plan_name = st.text_input("Name")
+        plan_focus = st.text_input("Focus")
+        # Todo select routines
+        start_date = st.date_input("Start Date")
+        end_date = st.date_input("End Date")
+        if st.button("Submit"):
+            # Todo save to db
+            st.rerun()
+
+    if st.button("Create Plan"):
+        create_plan_modal()
 
 with workout_view:
 
