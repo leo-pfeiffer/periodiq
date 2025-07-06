@@ -83,4 +83,9 @@ class WorkoutSet(Base):
         return f"WorkoutSet(id={self.id!r}, index={self.index!r})"
 
 
+# todo add models for
+# 1. Hevy Routine
+# 2. Hevy Exercise
+# 3. Periodiq Plan
+
 Base.metadata.create_all(engine)

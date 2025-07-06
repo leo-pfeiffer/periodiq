@@ -12,8 +12,8 @@ st.set_page_config("Periodiq")
 st.set_page_config(layout="wide")
 st.logo('images/periodiq-logo.png', size='large')
 
-dashboard_view, workout_view, exercise_view, settings_view = st.tabs(
-    ["Dashboard", "Workouts", "Exercises", "Settings"]
+dashboard_view, planner_view, workout_view, exercise_view, settings_view = st.tabs(
+    ["Dashboard", "Planner", "Workouts", "Exercises", "Settings"]
 )
 
 priority_exercises = [
@@ -63,6 +63,29 @@ with dashboard_view:
         y_label="# Sets",
         color=(255, 75, 75, 0.6)
     )
+
+with planner_view:
+    # CREATE NEW PLAN (Modal)
+    # 1. Name of the plan
+    # 2. Description / Goals
+    # 3. Select Hevy Routines to include in this plan
+    # 4. Start Date / End Date
+    #
+    # SELECT / VIEW PLAN
+    # 1. Select plan from list
+    # -> Shows title and description
+    # -> Pulls in all workouts within the time frame of the plan
+    # -> All workouts whose name corresponds to plan routines, are grouped together
+    # -> All other workouts are grouped as UNCATEGORIZED
+    #
+    # EDIT PLAN (Modal)
+    # 1. Update (name, description, routines, start/end date
+    # 2. Delete plan
+    #
+    # CALENDAR VIEW
+    # 1. Shows plans in order (layout tbd)
+    # 2. Click on plan should select plan (maybe)
+    ...
 
 with workout_view:
 
