@@ -1,5 +1,4 @@
 from datetime import datetime
-
 import requests
 from requests import Response
 
@@ -9,108 +8,63 @@ from src.config import CONFIG
 class HevyAPI:
     BASE_URL = "https://api.hevyapp.com/v1"
     API_KEY = CONFIG["HEVY_API_KEY"]
+    _PAGE_SIZE = 30
 
     @classmethod
-    def get_workouts_count(cls):
+    def _paginate(cls, path: str, data_key: str, extra_params: dict[str, any] | None = None) -> list[dict]:
+        items: list[dict] = []
+        current_page = 1
+
+        params = {"page": current_page, "pageSize": cls._PAGE_SIZE}
+        if extra_params:
+            params.update(extra_params)
+
+        def _get_page(page: int) -> Response:
+            params["page"] = page
+            return requests.get(
+                f"{cls.BASE_URL}/{path}",
+                headers={"api-key": cls.API_KEY},
+                params=params
+            )
+
+        # fetch first page to get page_count
+        first_resp = _get_page(current_page)
+        data = first_resp.json()
+        page_count = data.get("page_count", 0)
+        items.extend(data.get(data_key, []) or [])
+
+        # fetch remaining pages
+        while current_page < page_count:
+            current_page += 1
+            resp = _get_page(current_page)
+            items.extend(resp.json().get(data_key, []) or [])
+
+        return items
+
+    @classmethod
+    def get_workouts_count(cls) -> Response:
         return requests.get(
-            f"{HevyAPI.BASE_URL}/workouts/count",
+            f"{cls.BASE_URL}/workouts/count",
             headers={"api-key": cls.API_KEY},
         )
 
     @classmethod
-    def get_workouts(cls):
-        workouts = []
-        current_page = 1
-        page_size = 30
-
-        def _get_page(page: int):
-            return requests.get(
-                f"{HevyAPI.BASE_URL}/workouts",
-                headers={"api-key": cls.API_KEY},
-                params={"page": page, "pageSize": page_size}
-            )
-
-        def _process_response(resp: Response):
-            _workouts = resp.json().get("workouts")
-            if _workouts:
-                workouts.extend(_workouts)
-
-        first_page = _get_page(current_page)
-        page_count = first_page.json().get("page_count", 0)
-
-        _process_response(first_page)
-
-        while current_page < page_count:
-            current_page += 1
-            next_page = _get_page(current_page)
-            _process_response(next_page)
-
-        return workouts
+    def get_workouts(cls) -> list[dict]:
+        return cls._paginate("workouts", "workouts")
 
     @classmethod
-    def get_workouts_events(cls, since: datetime):
+    def get_workouts_events(cls, since: datetime) -> list[dict]:
         since_iso = since.isoformat(timespec='seconds')
-        workout_events = []
-        current_page = 1
-        page_size = 30
-
-        def _get_page(page: int):
-            return requests.get(
-                f"{HevyAPI.BASE_URL}/workouts/events",
-                headers={"api-key": cls.API_KEY},
-                params={
-                    "page": page,
-                    "pageSize": page_size,
-                    "since": since_iso
-                }
-            )
-
-        def _process_response(resp: Response):
-            _workouts = resp.json().get("events")
-            if _workouts:
-                workout_events.extend(_workouts)
-
-        first_page = _get_page(current_page)
-        page_count = first_page.json().get("page_count", 0)
-
-        _process_response(first_page)
-
-        while current_page < page_count:
-            current_page += 1
-            next_page = _get_page(current_page)
-            _process_response(next_page)
-
-        return workout_events
+        return cls._paginate(
+            "workouts/events",
+            "events",
+            extra_params={"since": since_iso}
+        )
 
     @classmethod
-    def get_exercise_templates(cls):
-        exercise_templates = []
-        current_page = 1
-        page_size = 30
+    def get_exercise_templates(cls) -> list[dict]:
+        return cls._paginate("exercise_templates", "exercise_templates")
 
-        def _get_page(page: int):
-            return requests.get(
-                f"{HevyAPI.BASE_URL}/exercise_templates",
-                headers={"api-key": cls.API_KEY},
-                params={
-                    "page": page,
-                    "pageSize": page_size,
-                }
-            )
-
-        def _process_response(resp: Response):
-            _exercise_templates = resp.json().get("exercise_templates")
-            if _exercise_templates:
-                exercise_templates.extend(_exercise_templates)
-
-        first_page = _get_page(current_page)
-        page_count = first_page.json().get("page_count", 0)
-
-        _process_response(first_page)
-
-        while current_page < page_count:
-            current_page += 1
-            next_page = _get_page(current_page)
-            _process_response(next_page)
-
-        return exercise_templates
+    @classmethod
+    def get_routines(cls) -> list[dict]:
+        return cls._paginate("routines", "routines")
