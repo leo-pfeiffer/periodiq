@@ -4,9 +4,9 @@ from datetime import timedelta
 from sqlalchemy import select, func, delete
 
 from src.db.connection import SessionLocal
-from src.db.models import Workout, ExerciseTemplate
+from src.db.models import Workout, ExerciseTemplate, Routine
 from src.hevy.api import HevyAPI
-from src.hevy.utils import parse_workout, sort_workouts, parse_exercise_template
+from src.hevy.utils import parse_workout, sort_workouts, parse_exercise_template, parse_routine
 
 
 def insert_workouts(workouts: list[dict]) -> None:
@@ -58,8 +58,8 @@ def process_new_workout_events():
 def process_exercise_templates(overwrite=False):
     """
     Gets all exercise templates from the API and adds new
-    exercise templates to the database. No existing exercise
-    templates will be overridden.
+    exercise templates to the database. By default, no existing
+    exercise are overwritten, unless overwrite=True.
     """
     exercise_templates = HevyAPI.get_exercise_templates()
 
@@ -84,7 +84,32 @@ def process_exercise_templates(overwrite=False):
 
 
 def process_routines(overwrite=False):
-    ...
+    """
+    Gets all routines from the Hevy API and adds new
+    routines to the database. By default, no existing
+    routines are overwritten, unless overwrite=True.
+    """
+    routines = HevyAPI.get_routines()
+
+    with SessionLocal() as session, session.begin():
+        if overwrite:
+            # Overwrite by UUID
+            routine_ids = [r["id"] for r in routines]
+            delete_stmt = delete(Routine).where(Routine.uuid.in_(routine_ids))
+            session.execute(delete_stmt)
+        else:
+            # Only insert new UUIDs
+            existing_stmt = select(Routine.uuid).distinct()
+            existing_uuids = session.execute(existing_stmt).scalars().all()
+            routines = [
+                r for r in routines
+                if r["id"] not in existing_uuids
+            ]
+
+        routines_to_insert = [
+            parse_routine(e) for e in routines
+        ]
+        session.add_all(routines_to_insert)
 
 
 def refresh_data(overwrite_exercise_templates=False, overwrite_routines=False):

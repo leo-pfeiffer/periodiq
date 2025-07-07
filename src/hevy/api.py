@@ -11,11 +11,11 @@ class HevyAPI:
     _PAGE_SIZE = 30
 
     @classmethod
-    def _paginate(cls, path: str, data_key: str, extra_params: dict[str, any] | None = None) -> list[dict]:
+    def _paginate(cls, path: str, data_key: str, extra_params: dict[str, any] | None = None, page_size: int = _PAGE_SIZE) -> list[dict]:
         items: list[dict] = []
         current_page = 1
 
-        params = {"page": current_page, "pageSize": cls._PAGE_SIZE}
+        params = {"page": current_page, "pageSize": page_size}
         if extra_params:
             params.update(extra_params)
 
@@ -67,4 +67,4 @@ class HevyAPI:
 
     @classmethod
     def get_routines(cls) -> list[dict]:
-        return cls._paginate("routines", "routines")
+        return cls._paginate("routines", "routines", page_size=10)

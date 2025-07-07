@@ -56,7 +56,7 @@ def parse_exercise_template(payload: dict) -> ExerciseTemplate:
 
 def parse_routine(payload: dict) -> Routine:
     routine = Routine(
-        id=payload["id"],
+        uuid=payload["id"],
         title=payload["title"],
         folder_id=payload.get("folder_id"),
         updated_at=isoparse(payload["updated_at"]),

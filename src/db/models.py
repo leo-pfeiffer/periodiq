@@ -101,7 +101,8 @@ class ExerciseTemplate(Base):
 class Routine(Base):
     __tablename__ = "routine"
 
-    id: Mapped[str] = mapped_column(primary_key=True)  # UUID stored as TEXT
+    id: Mapped[int] = mapped_column(primary_key=True)
+    uuid: Mapped[str] = mapped_column(unique=True, index=True)
     title: Mapped[str]
     folder_id: Mapped[int | None]  # you can index this later if needed
     updated_at: Mapped[datetime]
