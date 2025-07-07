@@ -55,7 +55,7 @@ def process_new_workout_events():
         session.add_all(sort_workouts(workouts))
 
 
-def process_exercise_templates():
+def process_exercise_templates(overwrite=False):
     """
     Gets all exercise templates from the API and adds new
     exercise templates to the database. No existing exercise
@@ -64,19 +64,30 @@ def process_exercise_templates():
     exercise_templates = HevyAPI.get_exercise_templates()
 
     with SessionLocal() as session, session.begin():
-        existing_stmt = select(ExerciseTemplate.uuid).distinct()
-        existing_uuids = session.execute(existing_stmt).scalars().all()
-        new_exercise_templates = [
-            e for e in exercise_templates
-            if e["id"] not in existing_uuids
-        ]
+        if overwrite:
+            # Overwrite by UUID
+            exercise_template_ids = [e["id"] for e in exercise_templates]
+            delete_stmt = delete(ExerciseTemplate).where(ExerciseTemplate.uuid.in_(exercise_template_ids))
+            session.execute(delete_stmt)
+        else:
+            # Only insert new UUIDs
+            existing_stmt = select(ExerciseTemplate.uuid).distinct()
+            existing_uuids = session.execute(existing_stmt).scalars().all()
+            exercise_templates = [
+                e for e in exercise_templates
+                if e["id"] not in existing_uuids
+            ]
         exercise_templates_to_insert = [
-            parse_exercise_template(e) for e in new_exercise_templates
+            parse_exercise_template(e) for e in exercise_templates
         ]
-        print(f"Inserting {len(exercise_templates_to_insert)} new templates")
         session.add_all(exercise_templates_to_insert)
 
 
-def refresh_data():
+def process_routines(overwrite=False):
+    ...
+
+
+def refresh_data(overwrite_exercise_templates=False, overwrite_routines=False):
     process_new_workout_events()
-    process_exercise_templates()
+    process_exercise_templates(overwrite=overwrite_exercise_templates)
+    process_routines(overwrite=overwrite_routines)
