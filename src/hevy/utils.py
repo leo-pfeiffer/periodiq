@@ -1,6 +1,6 @@
 from dateutil.parser import isoparse
 
-from src.db.models import Workout, WorkoutExercise, WorkoutSet, ExerciseTemplate
+from src.db.models import Workout, WorkoutExercise, WorkoutSet, ExerciseTemplate, Routine, RoutineExercise, RoutineSet
 
 
 def parse_workout(payload: dict) -> Workout:
@@ -52,6 +52,45 @@ def parse_exercise_template(payload: dict) -> ExerciseTemplate:
         secondary_muscle_groups=payload.get("secondary_muscle_groups"),
         is_custom=bool(payload["is_custom"])
     )
+
+
+def parse_routine(payload: dict) -> Routine:
+    routine = Routine(
+        id=payload["id"],
+        title=payload["title"],
+        folder_id=payload.get("folder_id"),
+        updated_at=isoparse(payload["updated_at"]),
+        created_at=isoparse(payload["created_at"]),
+    )
+
+    # ----- nested exercises -----
+    for ex in payload.get("exercises", []):
+        exercise = RoutineExercise(
+            index=ex["index"],
+            title=ex["title"],
+            rest_seconds=ex["rest_seconds"],
+            notes=ex.get("notes"),
+            exercise_template_id=ex.get("exercise_template_id"),
+            supersets_id=ex.get("superset_id"),
+        )
+
+        # ----- nested sets -----
+        for st in ex.get("sets", []):
+            routine_set = RoutineSet(
+                index=st["index"],
+                type=st["type"],
+                weight_kg=st.get("weight_kg"),
+                reps=st.get("reps"),
+                distance_meters=st.get("distance_meters"),
+                duration_seconds=st.get("duration_seconds"),
+                rpe=st.get("rpe"),
+                custom_metric=st.get("custom_metric"),
+            )
+            exercise.sets.append(routine_set)
+
+        routine.exercises.append(exercise)
+
+    return routine
 
 
 def sort_workouts(workouts: list[Workout]):
