@@ -4,9 +4,9 @@ from datetime import timedelta
 from sqlalchemy import select, func, delete
 
 from src.db.connection import SessionLocal
-from src.db.models import Workout
+from src.db.models import Workout, ExerciseTemplate
 from src.hevy.api import HevyAPI
-from src.hevy.utils import parse_workout, sort_workouts
+from src.hevy.utils import parse_workout, sort_workouts, parse_exercise_template
 
 
 def insert_workouts(workouts: list[dict]) -> None:
@@ -53,3 +53,30 @@ def process_new_workout_events():
         # re-insert updated events
         workouts = [parse_workout(w) for w in grouped_events["updated"]]
         session.add_all(sort_workouts(workouts))
+
+
+def process_exercise_templates():
+    """
+    Gets all exercise templates from the API and adds new
+    exercise templates to the database. No existing exercise
+    templates will be overridden.
+    """
+    exercise_templates = HevyAPI.get_exercise_templates()
+
+    with SessionLocal() as session, session.begin():
+        existing_stmt = select(ExerciseTemplate.uuid).distinct()
+        existing_uuids = session.execute(existing_stmt).scalars().all()
+        new_exercise_templates = [
+            e for e in exercise_templates
+            if e["id"] not in existing_uuids
+        ]
+        exercise_templates_to_insert = [
+            parse_exercise_template(e) for e in new_exercise_templates
+        ]
+        print(f"Inserting {len(exercise_templates_to_insert)} new templates")
+        session.add_all(exercise_templates_to_insert)
+
+
+def refresh_data():
+    process_new_workout_events()
+    process_exercise_templates()

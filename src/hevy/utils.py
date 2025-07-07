@@ -1,6 +1,6 @@
 from dateutil.parser import isoparse
 
-from src.db.models import Workout, WorkoutExercise, WorkoutSet
+from src.db.models import Workout, WorkoutExercise, WorkoutSet, ExerciseTemplate
 
 
 def parse_workout(payload: dict) -> Workout:
@@ -41,6 +41,17 @@ def parse_workout(payload: dict) -> Workout:
         workout.exercises.append(exercise)
 
     return workout
+
+
+def parse_exercise_template(payload: dict) -> ExerciseTemplate:
+    return ExerciseTemplate(
+        uuid=payload["id"],
+        title=payload["title"],
+        type=payload["type"],
+        primary_muscle_group=payload["primary_muscle_group"],
+        secondary_muscle_groups=payload.get("secondary_muscle_groups"),
+        is_custom=bool(payload["is_custom"])
+    )
 
 
 def sort_workouts(workouts: list[Workout]):

@@ -1,4 +1,4 @@
-from datetime import datetime, date, timedelta
+from datetime import date, timedelta
 
 import streamlit as st
 
@@ -6,7 +6,7 @@ from src import data_utils
 from src.data_utils import get_workouts_by_routine_dfs, get_workouts_by_exercise_df, exercise_name_df, style_df, \
     change_in_one_rep_max, get_workout_uuids__in_time_range, change_in_heaviest_weight, \
     get_weekly_sets_last_three_months
-from src.hevy.updater import process_new_workout_events
+from src.hevy.updater import refresh_data
 
 st.set_page_config("Periodiq")
 st.set_page_config(layout="wide")
@@ -196,5 +196,5 @@ with settings_view:
     st.write("Fetch latest workout data from Hevy")
     st.button(
         label="Refresh data",
-        on_click=process_new_workout_events
+        on_click=refresh_data
     )

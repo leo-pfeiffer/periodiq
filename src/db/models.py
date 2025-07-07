@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKey, Boolean, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship, DeclarativeBase
 
 from src.db.connection import engine
@@ -42,7 +42,7 @@ class WorkoutExercise(Base):
     index: Mapped[int]
     title: Mapped[str]
     notes: Mapped[str | None]
-    exercise_template_id: Mapped[str]
+    exercise_template_id: Mapped[str]  # can be joined to ExerciseTemplate (not enforced)
     supersets_id: Mapped[int | None]
 
     workout: Mapped["Workout"] = relationship(
@@ -83,9 +83,89 @@ class WorkoutSet(Base):
         return f"WorkoutSet(id={self.id!r}, index={self.index!r})"
 
 
+class ExerciseTemplate(Base):
+    __tablename__ = 'exercise_template'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    uuid: Mapped[str] = mapped_column(unique=True, index=True)
+    title: Mapped[str]
+    type: Mapped[str]
+    primary_muscle_group: Mapped[str]
+    secondary_muscle_groups: Mapped[list[str] | None] = mapped_column(JSON)
+    is_custom: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    def __repr__(self) -> str:
+        return f"ExerciseTemplate(id={self.id!r}, title={self.title!r})"
+
+
+class Routine(Base):
+    __tablename__ = "routine"
+
+    id: Mapped[str] = mapped_column(primary_key=True)  # UUID stored as TEXT
+    title: Mapped[str]
+    folder_id: Mapped[int | None]  # you can index this later if needed
+    updated_at: Mapped[datetime]
+    created_at: Mapped[datetime]
+
+    exercises: Mapped[list["RoutineExercise"]] = relationship(
+        back_populates="routine",
+        cascade="all, delete-orphan",
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover
+        return f"Routine(id={self.id!r}, title={self.title!r})"
+
+
+class RoutineExercise(Base):
+    __tablename__ = "routine_exercise"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    routine_id: Mapped[str] = mapped_column(
+        ForeignKey("routine.id", ondelete="CASCADE"), nullable=False
+    )
+
+    index: Mapped[int]  # ordering within the routine
+    title: Mapped[str]
+    rest_seconds: Mapped[int]  # stored as seconds (integers)
+    notes: Mapped[str | None]
+    exercise_template_id: Mapped[str | None]  # **not** a foreign key on purpose
+    supersets_id: Mapped[int | None]
+
+    routine: Mapped["Routine"] = relationship(back_populates="exercises")
+
+    sets: Mapped[list["RoutineSet"]] = relationship(
+        back_populates="exercise",
+        cascade="all, delete-orphan",
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover
+        return f"RoutineExercise(id={self.id!r}, index={self.index!r})"
+
+
+class RoutineSet(Base):
+    __tablename__ = "routine_set"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    routine_exercise_id: Mapped[int] = mapped_column(
+        ForeignKey("routine_exercise.id", ondelete="CASCADE"), nullable=False
+    )
+
+    index: Mapped[int]
+    type: Mapped[str]
+    weight_kg: Mapped[float | None]
+    reps: Mapped[int | None]
+    distance_meters: Mapped[int | None]
+    duration_seconds: Mapped[int | None]
+    rpe: Mapped[float | None]
+    custom_metric: Mapped[int | None]
+
+    exercise: Mapped["RoutineExercise"] = relationship(back_populates="sets")
+
+    def __repr__(self) -> str:  # pragma: no cover
+        return f"RoutineSet(id={self.id!r}, index={self.index!r})"
+
+
 # todo add models for
-# 1. Hevy Routine
-# 2. Hevy Exercise
 # 3. Periodiq Plan
 
 Base.metadata.create_all(engine)
