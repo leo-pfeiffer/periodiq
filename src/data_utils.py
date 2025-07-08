@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, date, timedelta
+from operator import or_, and_, not_
 
 import pandas as pd
 from sqlalchemy import select, func
@@ -349,8 +350,7 @@ def get_periodiq_plans_df():
     return pd.DataFrame(plans)
 
 
-def create_or_update_periodiq_plan(
-    periodiq_plan_id: int | None,
+def verify_new_periodi_plan(
     name: str,
     description: str | None,
     start_date: date,
@@ -366,6 +366,33 @@ def create_or_update_periodiq_plan(
         description = description if description != '' else None
 
     assert start_date <= end_date
+
+    with SessionLocal() as session:
+        stmt = (
+            select(PeriodiqPlan)
+            .where(
+                start_date <= PeriodiqPlan.end_date,
+                end_date >= PeriodiqPlan.start_date
+            )
+        )
+        result = session.execute(stmt).first()
+        if result:
+            raise ValueError("Overlapping routine exists.")
+
+    return name, description, start_date, end_date, routine_uuids
+
+
+def create_or_update_periodiq_plan(
+    periodiq_plan_id: int | None,
+    name: str,
+    description: str | None,
+    start_date: date,
+    end_date: date,
+    routine_uuids: list[str]
+):
+    name, description, start_date, end_date, routine_uuids = verify_new_periodi_plan(
+        name, description, start_date, end_date, routine_uuids
+    )
 
     # Upsert
     with SessionLocal() as session, session.begin():
@@ -388,3 +415,10 @@ def create_or_update_periodiq_plan(
             for uuid in list(dict.fromkeys(routine_uuids))
         ]
         session.add(plan)
+
+
+def delete_periodiq_plan_by_id(periodiq_plan_id: int | None):
+    with SessionLocal() as session, session.begin():
+        plan_to_delete = session.get(PeriodiqPlan, periodiq_plan_id)
+        if plan_to_delete:
+            session.delete(plan_to_delete)

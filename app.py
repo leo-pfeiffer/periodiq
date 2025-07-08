@@ -6,7 +6,8 @@ from src import data_utils
 from src.app_utils import st_horizontal
 from src.data_utils import get_workouts_by_routine_dfs, get_workouts_by_exercise_df, exercise_name_df, style_df, \
     change_in_one_rep_max, get_workout_uuids__in_time_range, change_in_heaviest_weight, \
-    get_weekly_sets_last_three_months, get_routines_df, create_or_update_periodiq_plan, get_periodiq_plans_df
+    get_weekly_sets_last_three_months, get_routines_df, create_or_update_periodiq_plan, get_periodiq_plans_df, \
+    delete_periodiq_plan_by_id
 from src.hevy.updater import refresh_data
 
 
@@ -122,16 +123,20 @@ with planner_view:
         def _selected_routine_uuids():
             return list(routines_df.iloc[selected_indices].uuid.unique())
 
-        if st.button("Submit"):
-            create_or_update_periodiq_plan(
-                periodiq_plan_id=plan_id,
-                name=plan_name,
-                description=plan_focus,
-                start_date=start_date,
-                end_date=end_date,
-                routine_uuids=_selected_routine_uuids()
-            )
-            st.rerun()
+        with st_horizontal():
+            if st.button("Submit"):
+                create_or_update_periodiq_plan(
+                    periodiq_plan_id=plan_id,
+                    name=plan_name,
+                    description=plan_focus,
+                    start_date=start_date,
+                    end_date=end_date,
+                    routine_uuids=_selected_routine_uuids()
+                )
+                st.rerun()
+            if st.button("Delete"):
+                delete_periodiq_plan_by_id(periodiq_plan_id=plan_id)
+                st.rerun()
 
 
     with st_horizontal():
