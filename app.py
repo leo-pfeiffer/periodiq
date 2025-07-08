@@ -155,14 +155,15 @@ with planner_view:
 
     if len(periodiq_plan_df_selector.selection.rows) > 0:
         if button_slot.button("Edit"):
-            selected_row = available_periodiq_plans.iloc[periodiq_plan_df_selector.selection.rows]
+            idx = periodiq_plan_df_selector.selection.rows
+            selected_row = available_periodiq_plans.iloc[idx]
             create_plan_modal(
-                plan_id=int(selected_row.id[0]),
-                name=selected_row.name[0],
-                focus=selected_row.description[0],
-                start_date=selected_row.start_date[0],
-                end_date=selected_row.end_date[0],
-                routine_uuids=selected_row.routines[0]
+                plan_id=int(selected_row.id.values[0]),
+                name=selected_row.name.values[0],
+                focus=selected_row.description.values[0],
+                start_date=selected_row.start_date.values[0],
+                end_date=selected_row.end_date.values[0],
+                routine_uuids=selected_row.routines.values[0]
             )
     else:
         button_slot.empty()

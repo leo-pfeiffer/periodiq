@@ -58,7 +58,7 @@ def get_periodiq_plans(fetch_relationships=False) -> list[dict]:
     with SessionLocal() as session:
         stmt = (
             select(PeriodiqPlan)
-            .order_by(PeriodiqPlan.created_at.desc())
+            .order_by(PeriodiqPlan.start_date.desc())
         )
         plans = session.execute(stmt).scalars().all()
         return [orm_to_dict(p, recurse_relationships=fetch_relationships) for p in plans]
@@ -350,7 +350,8 @@ def get_periodiq_plans_df():
     return pd.DataFrame(plans)
 
 
-def verify_new_periodi_plan(
+def verify_new_periodiq_plan(
+    periodiq_plan_id: int,
     name: str,
     description: str | None,
     start_date: date,
@@ -361,7 +362,7 @@ def verify_new_periodi_plan(
     name = name.strip()
     assert name != ''
 
-    if description:
+    if description is not None:
         description = description.strip()
         description = description if description != '' else None
 
@@ -372,7 +373,9 @@ def verify_new_periodi_plan(
             select(PeriodiqPlan)
             .where(
                 start_date <= PeriodiqPlan.end_date,
-                end_date >= PeriodiqPlan.start_date
+                end_date >= PeriodiqPlan.start_date,
+                periodiq_plan_id != PeriodiqPlan.id
+
             )
         )
         result = session.execute(stmt).first()
@@ -390,8 +393,8 @@ def create_or_update_periodiq_plan(
     end_date: date,
     routine_uuids: list[str]
 ):
-    name, description, start_date, end_date, routine_uuids = verify_new_periodi_plan(
-        name, description, start_date, end_date, routine_uuids
+    name, description, start_date, end_date, routine_uuids = verify_new_periodiq_plan(
+        periodiq_plan_id, name, description, start_date, end_date, routine_uuids
     )
 
     # Upsert
