@@ -1,11 +1,12 @@
+import logging
 from datetime import datetime, date, timedelta
 
 import pandas as pd
-from sqlalchemy import select, func, extract
+from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
 from src.db.connection import SessionLocal
-from src.db.models import Workout, WorkoutExercise, WorkoutSet
+from src.db.models import Workout, WorkoutExercise, WorkoutSet, Routine, PeriodiqPlan, PeriodiqPlanRoutine
 from src.db.utils import orm_to_dict
 
 UNCATEGORIZED = "UNCATEGORIZED"
@@ -40,6 +41,26 @@ def get_workouts_with_details(uuids: list[str]) -> list[dict]:
         )
         workouts = session.execute(stmt).scalars().all()
         return [orm_to_dict(w) for w in workouts]
+
+
+def get_routines(fetch_relationships=False) -> list[dict]:
+    with SessionLocal() as session:
+        stmt = (
+            select(Routine)
+            .order_by(Routine.created_at.desc())
+        )
+        routines = session.execute(stmt).scalars().all()
+        return [orm_to_dict(r, recurse_relationships=fetch_relationships) for r in routines]
+
+
+def get_periodiq_plans(fetch_relationships=False) -> list[dict]:
+    with SessionLocal() as session:
+        stmt = (
+            select(PeriodiqPlan)
+            .order_by(PeriodiqPlan.created_at.desc())
+        )
+        plans = session.execute(stmt).scalars().all()
+        return [orm_to_dict(p, recurse_relationships=fetch_relationships) for p in plans]
 
 
 def get_workout_uuids__in_time_range(start_date: date, end_date: date) -> list[str]:
@@ -145,8 +166,8 @@ def get_workout_df_for_routine(exercises, workouts):
             set_values = []
             if gex:
                 for idx, s in enumerate(gex['sets']):
-                    col_name1 = (start_time, f'W {idx+1}')
-                    col_name2 = (start_time, f'R {idx+1}')
+                    col_name1 = (start_time, f'W {idx + 1}')
+                    col_name2 = (start_time, f'R {idx + 1}')
 
                     if col_name1 not in columns_set:
                         columns_set.add(col_name1)
@@ -314,3 +335,56 @@ def get_weekly_sets_last_three_months():
     prev_three = date.today() - timedelta(90)
     sets = get_weekly_set_counts(prev_three, today)
     return pd.DataFrame(sets)
+
+
+def get_routines_df():
+    routines = get_routines()
+    return pd.DataFrame(routines)
+
+
+def get_periodiq_plans_df():
+    plans = get_periodiq_plans(True)
+    for plan in plans:
+        plan['routines'] = [r['routine_uuid'] for r in plan.get('routines', [])]
+    return pd.DataFrame(plans)
+
+
+def create_or_update_periodiq_plan(
+    periodiq_plan_id: int | None,
+    name: str,
+    description: str | None,
+    start_date: date,
+    end_date: date,
+    routine_uuids: list[str]
+):
+    # Data validity checks
+    name = name.strip()
+    assert name != ''
+
+    if description:
+        description = description.strip()
+        description = description if description != '' else None
+
+    assert start_date <= end_date
+
+    # Upsert
+    with SessionLocal() as session, session.begin():
+        existing = None
+        if periodiq_plan_id:
+            existing = session.get(PeriodiqPlan, periodiq_plan_id)
+
+        if existing:
+            plan = existing
+        else:
+            plan = PeriodiqPlan()
+
+        plan.name = name
+        plan.description = description
+        plan.start_date = start_date
+        plan.end_date = end_date
+
+        plan.routines = [
+            PeriodiqPlanRoutine(routine_uuid=uuid)
+            for uuid in list(dict.fromkeys(routine_uuids))
+        ]
+        session.add(plan)

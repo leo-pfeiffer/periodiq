@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import datetime, date
 
-from sqlalchemy import ForeignKey, Boolean, JSON
+from sqlalchemy import ForeignKey, Boolean, JSON, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship, DeclarativeBase
 
 from src.db.connection import engine
@@ -166,7 +166,33 @@ class RoutineSet(Base):
         return f"RoutineSet(id={self.id!r}, index={self.index!r})"
 
 
-# todo add models for
-# 3. Periodiq Plan
+class PeriodiqPlan(Base):
+    __tablename__ = "periodiq_plan"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(unique=True)
+    description: Mapped[str | None]
+    start_date: Mapped[date]
+    end_date: Mapped[date]
+    created_at: Mapped[datetime] = mapped_column(default=func.now())
+
+    routines: Mapped[list["PeriodiqPlanRoutine"]] = relationship(
+        back_populates="periodiq_plan",
+        cascade="all, delete-orphan",
+    )
+
+
+class PeriodiqPlanRoutine(Base):
+    __tablename__ = "periodiq_plan_routine"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    periodiq_plan_id: Mapped[int] = mapped_column(
+        ForeignKey("periodiq_plan.id", ondelete="CASCADE"),
+        nullable=False
+    )
+    routine_uuid: Mapped[str]  # join on Routine.uuid, but not enforced
+
+    periodiq_plan: Mapped["PeriodiqPlan"] = relationship(back_populates="routines")
+
 
 Base.metadata.create_all(engine)

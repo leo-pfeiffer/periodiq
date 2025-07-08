@@ -3,10 +3,12 @@ from datetime import date, timedelta
 import streamlit as st
 
 from src import data_utils
+from src.app_utils import st_horizontal
 from src.data_utils import get_workouts_by_routine_dfs, get_workouts_by_exercise_df, exercise_name_df, style_df, \
     change_in_one_rep_max, get_workout_uuids__in_time_range, change_in_heaviest_weight, \
-    get_weekly_sets_last_three_months
+    get_weekly_sets_last_three_months, get_routines_df, create_or_update_periodiq_plan, get_periodiq_plans_df
 from src.hevy.updater import refresh_data
+
 
 st.set_page_config("Periodiq")
 st.set_page_config(layout="wide")
@@ -86,20 +88,80 @@ with planner_view:
     # 1. Shows plans in order (layout tbd)
     # 2. Click on plan should select plan (maybe)
 
-    @st.dialog("Create new plan")
-    def create_plan_modal():
-        st.write(f"Create new plan")
-        plan_name = st.text_input("Name")
-        plan_focus = st.text_input("Focus")
-        # Todo select routines
-        start_date = st.date_input("Start Date")
-        end_date = st.date_input("End Date")
+    @st.dialog("Periodiq Plan", width='large')
+    def create_plan_modal(
+        plan_id=None,
+        name=None,
+        focus=None,
+        start_date=None,
+        end_date=None,
+        routine_uuids=None
+    ):
+
+        plan_name = st.text_input("Name", value=name)
+        plan_focus = st.text_input("Focus", value=focus)
+        start_date = st.date_input("Start Date", value=start_date)
+        end_date = st.date_input("End Date", value=end_date)
+
+        st.write("Routines:")
+        routines_df = get_routines_df()
+
+        pre_selected_rows = []
+        print(routine_uuids)
+        if routine_uuids:
+            filtered_uuids = routines_df.uuid.isin(routine_uuids)
+            pre_selected_rows = list(filtered_uuids[filtered_uuids].index)
+
+        selected_indices = st.multiselect(
+            "Select rows",
+            options=routines_df.index.tolist(),
+            default=pre_selected_rows,
+            format_func=lambda i: f"{routines_df.loc[i, 'title']} (uuid={routines_df.loc[i, 'uuid']})"
+        )
+
+        def _selected_routine_uuids():
+            return list(routines_df.iloc[selected_indices].uuid.unique())
+
         if st.button("Submit"):
-            # Todo save to db
+            create_or_update_periodiq_plan(
+                periodiq_plan_id=plan_id,
+                name=plan_name,
+                description=plan_focus,
+                start_date=start_date,
+                end_date=end_date,
+                routine_uuids=_selected_routine_uuids()
+            )
             st.rerun()
 
-    if st.button("Create Plan"):
-        create_plan_modal()
+
+    with st_horizontal():
+        if st.button("Create Plan"):
+            create_plan_modal()
+
+        button_slot = st.empty()
+
+    available_periodiq_plans = get_periodiq_plans_df()
+    periodiq_plan_df_selector = st.dataframe(
+        available_periodiq_plans,
+        hide_index=True,
+        on_select="rerun",
+        selection_mode="single-row",
+    )
+
+    if len(periodiq_plan_df_selector.selection.rows) > 0:
+        if button_slot.button("Edit"):
+            selected_row = available_periodiq_plans.iloc[periodiq_plan_df_selector.selection.rows]
+            create_plan_modal(
+                plan_id=int(selected_row.id[0]),
+                name=selected_row.name[0],
+                focus=selected_row.description[0],
+                start_date=selected_row.start_date[0],
+                end_date=selected_row.end_date[0],
+                routine_uuids=selected_row.routines[0]
+            )
+    else:
+        button_slot.empty()
+
 
 with workout_view:
 
