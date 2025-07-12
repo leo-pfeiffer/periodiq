@@ -8,24 +8,26 @@ from src.config import CONFIG
 class HevyAPI:
     BASE_URL = "https://api.hevyapp.com/v1"
     API_KEY = CONFIG["HEVY_API_KEY"]
-    _PAGE_SIZE = 30
+    _PAGE_SIZE = 10
 
     @classmethod
-    def _paginate(cls, path: str, data_key: str, extra_params: dict[str, any] | None = None, page_size: int = _PAGE_SIZE) -> list[dict]:
+    def _paginate(cls, path: str, data_key: str, extra_params: dict[str, any] | None = None) -> list[dict]:
         items: list[dict] = []
         current_page = 1
 
-        params = {"page": current_page, "pageSize": page_size}
+        params = {"page": current_page, "pageSize": cls._PAGE_SIZE}
         if extra_params:
             params.update(extra_params)
 
         def _get_page(page: int) -> Response:
             params["page"] = page
-            return requests.get(
+            response = requests.get(
                 f"{cls.BASE_URL}/{path}",
                 headers={"api-key": cls.API_KEY},
                 params=params
             )
+            response.raise_for_status()
+            return response
 
         # fetch first page to get page_count
         first_resp = _get_page(current_page)
@@ -67,4 +69,4 @@ class HevyAPI:
 
     @classmethod
     def get_routines(cls) -> list[dict]:
-        return cls._paginate("routines", "routines", page_size=10)
+        return cls._paginate("routines", "routines")

@@ -5,9 +5,9 @@ import streamlit as st
 from src import data_utils
 from src.app_utils import st_horizontal
 from src.data_utils import get_workouts_by_routine_dfs, get_workouts_by_exercise_df, exercise_name_df, style_df, \
-    change_in_one_rep_max, get_workout_uuids__in_time_range, change_in_heaviest_weight, \
+    change_in_one_rep_max, get_workout_uuids_in_time_range, change_in_heaviest_weight, \
     get_weekly_sets_last_three_months, get_routines_df, create_or_update_periodiq_plan, get_periodiq_plans_df, \
-    delete_periodiq_plan_by_id
+    delete_periodiq_plan_by_id, get_workout_dfs_for_periodiq_plan
 from src.hevy.updater import refresh_data
 
 
@@ -153,7 +153,10 @@ with planner_view:
         selection_mode="single-row",
     )
 
-    if len(periodiq_plan_df_selector.selection.rows) > 0:
+    if len(periodiq_plan_df_selector.selection.rows) == 0:
+        button_slot.empty()
+
+    else:
         if button_slot.button("Edit"):
             idx = periodiq_plan_df_selector.selection.rows
             selected_row = available_periodiq_plans.iloc[idx]
@@ -165,8 +168,19 @@ with planner_view:
                 end_date=selected_row.end_date.values[0],
                 routine_uuids=selected_row.routines.values[0]
             )
-    else:
-        button_slot.empty()
+
+        idx = periodiq_plan_df_selector.selection.rows
+        selected_row = available_periodiq_plans.iloc[idx]
+        dfs = get_workout_dfs_for_periodiq_plan(int(selected_row.id.values[0]))
+        for g, df in dfs.items():
+            st.write(g)
+            st.dataframe(
+                df,
+                column_config={
+                    "_index": st.column_config.Column("Exercise", width="medium")
+                },
+                use_container_width=False
+            )
 
 
 with workout_view:
@@ -229,7 +243,7 @@ with exercise_view:
         label_visibility="hidden"
     )
 
-    time_range_uuids = get_workout_uuids__in_time_range(date_range[0], date_range[1])
+    time_range_uuids = get_workout_uuids_in_time_range(date_range[0], date_range[1])
     exercise_name_df = exercise_name_df(time_range_uuids)
 
     exercises_df = st.dataframe(

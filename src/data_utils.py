@@ -1,6 +1,5 @@
-import logging
 from datetime import datetime, date, timedelta
-from operator import or_, and_, not_
+from typing import Sequence
 
 import pandas as pd
 from sqlalchemy import select, func
@@ -44,14 +43,36 @@ def get_workouts_with_details(uuids: list[str]) -> list[dict]:
         return [orm_to_dict(w) for w in workouts]
 
 
-def get_routines(fetch_relationships=False) -> list[dict]:
+def get_workouts_in_time_range(start_date: date, end_date: date) -> list[dict]:
+    with SessionLocal() as session:
+        stmt = (
+            select(Workout)
+            .where(Workout.start_time >= start_date)
+            .where(Workout.start_time <= end_date)
+            .order_by(Workout.start_time)
+            .options(
+                selectinload(Workout.exercises)
+                .selectinload(WorkoutExercise.sets)
+            )
+        )
+        workouts = session.execute(stmt).scalars().all()
+        return [orm_to_dict(w) for w in workouts]
+
+
+def get_routines(routine_ids: set[str] | None) -> Sequence[Routine]:
     with SessionLocal() as session:
         stmt = (
             select(Routine)
             .order_by(Routine.created_at.desc())
         )
-        routines = session.execute(stmt).scalars().all()
-        return [orm_to_dict(r, recurse_relationships=fetch_relationships) for r in routines]
+        if routine_ids is not None:
+            stmt = stmt.filter(Routine.uuid.in_(routine_ids))
+        return session.execute(stmt).scalars().all()
+
+
+def get_routines_dict(fetch_relationships=False, routine_ids: set[str] | None = None) -> list[dict]:
+    routines = get_routines(routine_ids)
+    return [orm_to_dict(r, recurse_relationships=fetch_relationships) for r in routines]
 
 
 def get_periodiq_plans(fetch_relationships=False) -> list[dict]:
@@ -64,7 +85,19 @@ def get_periodiq_plans(fetch_relationships=False) -> list[dict]:
         return [orm_to_dict(p, recurse_relationships=fetch_relationships) for p in plans]
 
 
-def get_workout_uuids__in_time_range(start_date: date, end_date: date) -> list[str]:
+def get_periodiq_plan(periodiq_plan_id: int) -> PeriodiqPlan | None:
+    with SessionLocal() as session:
+        stmt = (
+            select(PeriodiqPlan)
+            .where(PeriodiqPlan.id == periodiq_plan_id)
+            .options(
+                selectinload(PeriodiqPlan.routines)
+            )
+        )
+        return session.execute(stmt).scalar_one_or_none()
+
+
+def get_workout_uuids_in_time_range(start_date: date, end_date: date) -> list[str]:
     with SessionLocal() as session:
         stmt = (
             select(Workout.uuid)
@@ -109,10 +142,14 @@ def guess_order_of_workout_days(grouped):
     return order
 
 
-def group_and_sort_workouts(workouts):
+def group_and_sort_workouts(workouts, categorized_routines: set[str] | None):
     grouped_workouts = {}
     for workout in workouts:
         workout_day = get_workout_day(workout)
+        if categorized_routines is not None:
+            # If categorized_routines is provided, only categorize those workouts
+            if workout.get("title") not in categorized_routines:
+                workout_day = UNCATEGORIZED
         if workout_day in grouped_workouts:
             grouped_workouts[workout_day].append(workout)
         else:
@@ -214,6 +251,29 @@ def get_workouts_by_routine_dfs(uuids) -> dict:
         return {}
     workouts = get_workouts_with_details(uuids)
     grouped_workouts = group_and_sort_workouts(workouts)
+    guessed_order = guess_order_of_workout_days(grouped_workouts)
+    group_exercises = exercises_of_group(grouped_workouts)
+
+    return {
+        g: style_df(get_workout_df_for_routine(group_exercises[g], grouped_workouts[g]))
+        for g in guessed_order
+    }
+
+
+def get_workout_dfs_for_periodiq_plan(periodiq_plan_id: int) -> dict:
+    periodiq_plan = get_periodiq_plan(periodiq_plan_id)
+    if periodiq_plan is None:
+        return {}
+
+    workouts = get_workouts_in_time_range(periodiq_plan.start_date, periodiq_plan.end_date)
+
+    hevy_routines = get_routines(routine_ids={x.routine_uuid for x in periodiq_plan.routines})
+
+    categorized_routines = set()
+    for routine in hevy_routines:
+        categorized_routines.add(routine.title)
+
+    grouped_workouts = group_and_sort_workouts(workouts, categorized_routines=categorized_routines)
     guessed_order = guess_order_of_workout_days(grouped_workouts)
     group_exercises = exercises_of_group(grouped_workouts)
 
@@ -339,7 +399,7 @@ def get_weekly_sets_last_three_months():
 
 
 def get_routines_df():
-    routines = get_routines()
+    routines = get_routines_dict()
     return pd.DataFrame(routines)
 
 

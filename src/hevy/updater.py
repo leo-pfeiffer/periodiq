@@ -60,6 +60,7 @@ def process_exercise_templates(overwrite=False):
     Gets all exercise templates from the API and adds new
     exercise templates to the database. By default, no existing
     exercise are overwritten, unless overwrite=True.
+    todo use same overwrite strategy as create_or_update_periodiq_plan
     """
     exercise_templates = HevyAPI.get_exercise_templates()
 
@@ -88,6 +89,7 @@ def process_routines(overwrite=False):
     Gets all routines from the Hevy API and adds new
     routines to the database. By default, no existing
     routines are overwritten, unless overwrite=True.
+    todo use same overwrite strategy as create_or_update_periodiq_plan
     """
     routines = HevyAPI.get_routines()
 
