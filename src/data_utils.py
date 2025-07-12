@@ -342,7 +342,7 @@ def _get_heaviest_weight_last(exercise: str, start_date: date, end_date: date):
 
 
 def change_in_one_rep_max(exercise) -> tuple:
-    today = date.today()
+    today = date.today() + timedelta(days=1)
     prev_three = date.today() - timedelta(90)
     prev_six = date.today() - timedelta(180)
     last_three_months = int(_get_one_rep_max_last(exercise, prev_three, today) * KG_TO_LBS)
@@ -351,7 +351,7 @@ def change_in_one_rep_max(exercise) -> tuple:
 
 
 def change_in_heaviest_weight(exercise) -> tuple:
-    today = date.today()
+    today = date.today() + timedelta(days=1)
     prev_three = date.today() - timedelta(90)
     prev_six = date.today() - timedelta(180)
     last_three_months = int(_get_heaviest_weight_last(exercise, prev_three, today) * KG_TO_LBS)
